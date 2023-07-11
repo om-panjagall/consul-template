@@ -27,9 +27,9 @@ import (
 )
 
 const (
-	// saneViewLimit is the number of views that we consider "sane" before we
+	// viewLimit is the number of views that we consider reasonable before we
 	// warn the user that they might be DDoSing their Consul cluster.
-	saneViewLimit = 128
+	viewLimit = 128
 )
 
 // Runner responsible rendering Templates and invoking Commands.
@@ -276,7 +276,7 @@ func (r *Runner) Start() {
 
 	for {
 		// Warn the user if they are watching too many dependencies.
-		if r.watcher.Size() > saneViewLimit {
+		if r.watcher.Size() > viewLimit {
 			log.Printf("[WARN] (runner) watching %d dependencies - watching this "+
 				"many dependencies could DDoS your servers", r.watcher.Size())
 		} else {
@@ -944,7 +944,7 @@ func (r *Runner) init(clients *dep.ClientSet) error {
 	dep.SetVaultLeaseRenewalThreshold(*r.config.Vault.LeaseRenewalThreshold)
 
 	// Create the watcher
-	r.watcher = newWatcher(r.config, clients, r.config.Once)
+	r.watcher = newWatcher(r.config, clients)
 
 	numTemplates := len(*r.config.Templates)
 	templates := make([]*template.Template, 0, numTemplates)
@@ -970,6 +970,7 @@ func (r *Runner) init(clients *dep.ClientSet) error {
 			ErrFatal:         config.BoolVal(ctmpl.ErrFatal),
 			LeftDelim:        leftDelim,
 			RightDelim:       rightDelim,
+			ExtFuncMap:       ctmpl.ExtFuncMap,
 			FunctionDenylist: ctmpl.FunctionDenylist,
 			SandboxPath:      config.StringVal(ctmpl.SandboxPath),
 			Destination:      config.StringVal(ctmpl.Destination),
@@ -1397,7 +1398,7 @@ func NewClientSet(c *config.Config) (*dep.ClientSet, error) {
 }
 
 // newWatcher creates a new watcher.
-func newWatcher(c *config.Config, clients *dep.ClientSet, once bool) *watch.Watcher {
+func newWatcher(c *config.Config, clients *dep.ClientSet) *watch.Watcher {
 	log.Printf("[INFO] (runner) creating watcher")
 
 	return watch.NewWatcher(&watch.NewWatcherInput{
